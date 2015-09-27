@@ -5,7 +5,7 @@
 
     <item
         android:id="@+id/action_camera"
-        android:icon="@drawable/ic_camera_alt_black_24dp"
+        android:icon="@drawable/ic_camera_alt_white_24dp"
         android:title="@string/action_camera"
         android:orderInCategory="1"
         app:showAsAction="ifRoom"
