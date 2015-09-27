@@ -2,18 +2,20 @@ package uk.co.kevalshah.dailyselfie;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 public class DailySelfieActivity extends AppCompatActivity {
@@ -22,11 +24,38 @@ public class DailySelfieActivity extends AppCompatActivity {
     private static final int REQUEST_TAKE_PHOTO = 1;
 
     private String mCurrentPhotoPath = null;
+    private ListView listView = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_daily_selfie);
+
+        final File storageDir = getStorageDirectory();
+        final File[] files = storageDir.listFiles();
+
+        listView = (ListView) findViewById(R.id.selfiesListView);
+        final SelfieListAdapter listAdapter = new SelfieListAdapter(this, Arrays.asList(files));
+        listView.setAdapter(listAdapter);
+    }
+
+    private File getStorageDirectory() {
+        final File picturesDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES);
+        final File storageDir = new File(picturesDir, "dailyselfie");
+        if (!storageDir.exists()) {
+            final boolean success = storageDir.mkdirs();
+            if (!success) {
+                Log.e(TAG, "Failed to create storage directory");
+            }
+        }
+        return storageDir;
+    }
+
+    @Override
+    protected void onDestroy() {
+        listView.setAdapter(null);
+        super.onDestroy();
     }
 
     @Override
@@ -83,15 +112,7 @@ public class DailySelfieActivity extends AppCompatActivity {
     private File createImageFile() throws IOException {
         final String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         final String imageFileName = "selfie_" + timeStamp + "_";
-        final File picturesDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES);
-        final File storageDir = new File(picturesDir, "dailyselfie");
-        if (!storageDir.exists()) {
-            final boolean success = storageDir.mkdirs();
-            if (!success) {
-                Log.e(TAG, "Failed to create storage directory");
-            }
-        }
+        final File storageDir = getStorageDirectory();
         final File image = File.createTempFile(imageFileName, ".jpg", storageDir);
         // Save a file: path for use with ACTION_VIEW intents
         mCurrentPhotoPath = "file:" + image.getAbsolutePath();
