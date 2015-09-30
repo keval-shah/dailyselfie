@@ -1,14 +1,19 @@
 package uk.co.kevalshah.dailyselfie;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -22,21 +27,36 @@ public class DailySelfieActivity extends AppCompatActivity {
 
     private static final String TAG = "DailySelfieActivity";
     private static final int REQUEST_TAKE_PHOTO = 1;
+    static final String EXTRA_FILE_PATH = "filePath";
 
     private String mCurrentPhotoPath = null;
+    private SelfieListAdapter mListAdapter = null;
     private ListView listView = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_daily_selfie);
+        setupListView();
+    }
 
+    private void setupListView() {
         final File storageDir = getStorageDirectory();
         final File[] files = storageDir.listFiles();
 
         listView = (ListView) findViewById(R.id.selfiesListView);
-        final SelfieListAdapter listAdapter = new SelfieListAdapter(this, Arrays.asList(files));
-        listView.setAdapter(listAdapter);
+        mListAdapter = new SelfieListAdapter(this, Arrays.asList(files));
+        listView.setAdapter(mListAdapter);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                final File file = (File) parent.getAdapter().getItem(position);
+                final Intent displaySelfieIntent = new Intent(DailySelfieActivity.this, DisplaySelfieActivity.class);
+                displaySelfieIntent.putExtra(EXTRA_FILE_PATH, file.getPath());
+                startActivity(displaySelfieIntent);
+            }
+        });
+        registerForContextMenu(listView);
     }
 
     private File getStorageDirectory() {
@@ -117,5 +137,58 @@ public class DailySelfieActivity extends AppCompatActivity {
         // Save a file: path for use with ACTION_VIEW intents
         mCurrentPhotoPath = "file:" + image.getAbsolutePath();
         return image;
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        if (v.getId() == R.id.selfiesListView) {
+            final String[] menuItems = getResources().getStringArray(R.array.selfie_list_item_context_menu_options);
+            for (int i = 0; i < menuItems.length; i++) {
+                menu.add(Menu.NONE, i, i, menuItems[i]);
+            }
+        }
+    }
+
+    @Override
+    public boolean onContextItemSelected(final MenuItem item) {
+        final AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        final int menuItemIndex = item.getItemId();
+
+        if (menuItemIndex == 0) {
+            final DeleteFileTask deleteFileTask = new DeleteFileTask();
+            deleteFileTask.execute(info.position);
+        }
+        return true;
+    }
+
+    private class DeleteFileTask extends AsyncTask<Integer, Integer, Boolean> {
+
+        private final ProgressDialog dialog = new ProgressDialog(DailySelfieActivity.this,
+                ProgressDialog.STYLE_SPINNER);
+        private int position = -1;
+
+        @Override
+        protected void onPreExecute() {
+            dialog.setMessage("Deleting Selfie...");
+            dialog.show();
+        }
+
+        @Override
+        protected Boolean doInBackground(final Integer... params) {
+            position = params[0];
+            final File file = (File) mListAdapter.getItem(position);
+            return file.delete();
+        }
+
+        @Override
+        protected void onPostExecute(final Boolean deleted) {
+            if (dialog.isShowing()) dialog.dismiss();
+
+            if (deleted) {
+                mListAdapter.remove(position);
+            } else {
+                Toast.makeText(getApplicationContext(), "Failed to delete file", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }
